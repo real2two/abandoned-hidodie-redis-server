@@ -17,14 +17,14 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
         enabled: true
     },
 
-    username: {
+    usernames: {
         min: 3,
         max: 13,
         custom: username => {
             if (username.replace(/[0-9a-zA-Z_]/g, "").length > 0) return false;
             return true;
         },
-        disableDupes: true
+        disableDupes: 2
     },
 
     // The template becomes set to <room>.data for rooms, and <ws>.data for players.
