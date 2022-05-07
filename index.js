@@ -46,7 +46,7 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
     },
 
     onConnect: ws => {
-        console.log(ws);
+        console.log("player has connected: " + ws.username);
 
         //ws.send("test");
         //ws.sendBinary([0]);
@@ -56,17 +56,26 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
 
     onMessage: (ws, content) => {
         console.log(content);
+
+        ws.sendJSON({
+            a: content
+        });
     },
 
     onBinaryMessage: (ws, content) => {
         console.log(content);
+        
+        ws.sendBinary(content)
     },
 
     onDisconnect: (ws, roomDeleted) => {
         if (roomDeleted === false) {
+            console.log("player has left: " + ws.username);
             // "Player left the game."
 
             //ws.username
+        } else { 
+            console.log("player deleted room: " + ws.username);
         }
     }
 });

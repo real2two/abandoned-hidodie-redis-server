@@ -1,6 +1,6 @@
 {
   "dependencies": {
     "dotenv": "^16.0.0",
-    "scuffed-rooms": "^0.0.10"
+    "scuffed-rooms": "^0.0.11"
   }
 }
