@@ -12,13 +12,15 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
 
     maxRooms: parseFloat(process.env.MAX_ROOMS),
     maxPlayers: parseFloat(process.env.MAX_PLAYERS),
+    
+    idLength: 5,
 
     quickJoin: {
         enabled: true
     },
 
     usernames: {
-        min: 3,
+        min: 1,
         max: 13,
         custom: username => {
             if (username.replace(/[0-9a-zA-Z_]/g, "").length > 0) return false;
@@ -46,7 +48,7 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
     },
 
     onConnect: ws => {
-        console.log("player has connected: " + ws.username);
+        console.log("player has connected: " + ws.username + " (room id: " + ws.room.id + ")");
 
         //ws.send("test");
         //ws.sendBinary([0]);
@@ -65,7 +67,7 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
     onBinaryMessage: (ws, content) => {
         console.log(content);
         
-        ws.sendBinary(content)
+        ws.sendBinary(content);
     },
 
     onDisconnect: (ws, roomDeleted) => {

@@ -12,13 +12,13 @@ lodash.clonedeep@^4.5.0:
   resolved "https://registry.yarnpkg.com/lodash.clonedeep/-/lodash.clonedeep-4.5.0.tgz#e23f3f9c4f8fbdde872529c1071857a086e5ccef"
   integrity sha1-4j8/nE+Pvd6HJSnBBxhXoIblzO8=
 
-scuffed-rooms@^0.0.11:
-  version "0.0.11"
-  resolved "https://registry.yarnpkg.com/scuffed-rooms/-/scuffed-rooms-0.0.11.tgz#635f7f4252e58eadb020a7d1ae3861b1e4bce485"
-  integrity sha512-3l9yPKr05DI8myYEUtlyRjvUVOETGOFrRGQvaf/PQZhjq/Voaram6yDVEEWhcAseRM2iiTuxu45uGoaNKYQxfA==
+scuffed-rooms@^0.0.12:
+  version "0.0.12"
+  resolved "https://registry.yarnpkg.com/scuffed-rooms/-/scuffed-rooms-0.0.12.tgz#afcd5ff8f0a917ed7f8040480bc23da1ef20e7f7"
+  integrity sha512-/DUhhOz7hUdif1XcFcjr8BmilZ29I/OFVBBSPbm8rKZHCVYQKNmdNIXW2CRUiRCI/ggtAaEzWdi35p8c6xpK7Q==
   dependencies:
     lodash.clonedeep "^4.5.0"
-    uWebSockets.js "github:uNetworking/uWebSockets.js#v20.3.0"
+    uWebSockets.js uNetworking/uWebSockets.js#v20.3.0
 
 "uWebSockets.js@github:uNetworking/uWebSockets.js#v20.3.0":
   version "20.3.0"
