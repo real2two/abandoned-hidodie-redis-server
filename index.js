@@ -8,7 +8,10 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
     onStart: (port, app) => {
         console.log(`The server is listening on port ${port}.`);
 
-        app.get('/', (res, req) => {
+        app.get('/', res => {
+            res.writeHeader("Access-Control-Allow-Origin", process.env.INDEX_CORS_ORIGIN);
+            res.writeHeader("Access-Control-Allow-Methods", "GET");
+
             res.writeStatus('200 OK').end(indexInfo);
         });
 
