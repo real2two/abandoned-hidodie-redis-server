@@ -47,6 +47,14 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
         }
     },
 
+     extraProtocols: 1, // Amount of extra protocols used.
+     protocolPreJoin: protocols => { // Handle the protocols.
+            const version = protocols.shift();
+            if (version !== process.env.VERSION) return false;
+    
+            return true;
+     },
+
     onConnect: ws => {
         console.log("player has connected: " + ws.username + " (room id: " + ws.room.id + ")");
 
