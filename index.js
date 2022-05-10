@@ -1,8 +1,16 @@
 require("dotenv").config();
 
+const indexInfo = JSON.stringify({ // This is for app.get("/").
+    version: process.env.version
+});
+
 const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
     onStart: (port, app) => {
         console.log(`The server is listening on port ${port}.`);
+
+        app.get('/', (res, req) => {
+            res.writeStatus('200 OK').end(indexInfo);
+        });
 
         // add something about checking why a player can't join.
         app.get('/*', (res, req) => {
