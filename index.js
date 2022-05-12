@@ -21,6 +21,8 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
         });
     },
 
+    allowedOrigin: process.env.WS_CORS_ORIGIN,
+
     maxRooms: parseFloat(process.env.MAX_ROOMS),
     maxPlayers: parseFloat(process.env.MAX_PLAYERS),
     
