@@ -36,7 +36,7 @@ const rooms = require("scuffed-rooms")(parseFloat(process.env.PORT), {
         min: 1,
         max: 13,
         custom: username => {
-            if (username.replace(/[0-9a-zA-Z_]/g, "").length > 0) return false;
+            if (username !== username.trim()) return false;
             return true;
         },
         disableDupes: 2
