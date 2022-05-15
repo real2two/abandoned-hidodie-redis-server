@@ -2,24 +2,24 @@
 # yarn lockfile v1
 
 
-dotenv@^16.0.0:
-  version "16.0.0"
-  resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.0.0.tgz#c619001253be89ebb638d027b609c75c26e47411"
-  integrity sha512-qD9WU0MPM4SWLPJy/r2Be+2WgQj8plChsyrCNQzW/0WjvcJQiKQJ9mH3ZgB3fxbUUxgc/11ZJ0Fi5KiimWGz2Q==
+"dotenv@^16.0.0":
+  "integrity" "sha512-qD9WU0MPM4SWLPJy/r2Be+2WgQj8plChsyrCNQzW/0WjvcJQiKQJ9mH3ZgB3fxbUUxgc/11ZJ0Fi5KiimWGz2Q=="
+  "resolved" "https://registry.npmjs.org/dotenv/-/dotenv-16.0.0.tgz"
+  "version" "16.0.0"
 
-lodash.clonedeep@^4.5.0:
-  version "4.5.0"
-  resolved "https://registry.yarnpkg.com/lodash.clonedeep/-/lodash.clonedeep-4.5.0.tgz#e23f3f9c4f8fbdde872529c1071857a086e5ccef"
-  integrity sha1-4j8/nE+Pvd6HJSnBBxhXoIblzO8=
+"lodash.clonedeep@^4.5.0":
+  "integrity" "sha1-4j8/nE+Pvd6HJSnBBxhXoIblzO8="
+  "resolved" "https://registry.npmjs.org/lodash.clonedeep/-/lodash.clonedeep-4.5.0.tgz"
+  "version" "4.5.0"
 
-scuffed-rooms@^0.0.14:
-  version "0.0.14"
-  resolved "https://registry.yarnpkg.com/scuffed-rooms/-/scuffed-rooms-0.0.14.tgz#2159b5953345d0c42ceaf6b6b1dda797d99bce72"
-  integrity sha512-X7T3KJTpvWaMEgppck0tM8Ty09Fdv1iPWkso3xVGzpcbIozr41ZLzMQVwqFei9xI3VGXyEzw8U3VvjKhUK/n9Q==
+"scuffed-rooms@^0.0.15":
+  "integrity" "sha512-8mhv+xwyhFgEVEchEPlX5qLNPt7i2eTP4l2bkCJpB4ND+W/plJZHlBqw6IZvTJZoAy23aFYMlgAybGiYQhVaEg=="
+  "resolved" "https://registry.npmjs.org/scuffed-rooms/-/scuffed-rooms-0.0.15.tgz"
+  "version" "0.0.15"
   dependencies:
-    lodash.clonedeep "^4.5.0"
-    uWebSockets.js uNetworking/uWebSockets.js#v20.3.0
+    "lodash.clonedeep" "^4.5.0"
+    "uWebSockets.js" "github:uNetworking/uWebSockets.js#v20.3.0"
 
 "uWebSockets.js@github:uNetworking/uWebSockets.js#v20.3.0":
-  version "20.3.0"
-  resolved "https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/e5d6241a7bbfb0d9258780dbf6175ae34d6f18e9"
+  "resolved" "git+ssh://git@github.com/uNetworking/uWebSockets.js.git#e5d6241a7bbfb0d9258780dbf6175ae34d6f18e9"
+  "version" "20.3.0"
