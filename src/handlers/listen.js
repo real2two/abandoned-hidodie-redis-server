@@ -3,8 +3,6 @@ import uWebsockets from 'uWebSockets.js';
 
 const app = uWebsockets.App();
 
-process.log = m => console.log(`[WEB #${process.pid}] ${m}`)
-
 import upgrade from '../websocket/upgrade.js';
 import open from '../websocket/open.js';
 import message from '../websocket/message.js';
@@ -24,8 +22,8 @@ app
 
     .listen(parseFloat(process.env.PORT), listenSocket => {
         if (listenSocket) {
-            process.log(`Worker started.`);
+            console.log(`[WEB #${process.pid}] Worker started.`);
         } else {
-            process.log(`An error has occured while trying to listen the port.`);
+            console.log(`[WEB #${process.pid}] An error has occured while trying to listen the port.`);
         }
     });
