@@ -8,7 +8,7 @@ const clusterCount = parseFloat(process.env.CLUSTERS) || cpus().length;
 if (cluster.isPrimary) {
     console.log('[WEB CLUSTER] The website is loading...');
 
-    for (let i = 0; i < clusterCount; i++) {
+    for (let i = 0; i < clusterCount; ++i) {
         cluster.fork();
     }
 
