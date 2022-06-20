@@ -1,5 +1,5 @@
-import { get, set, del } from "../handlers/rooms.js";
+import { get, set, del } from '../handlers/rooms.js';
 
 export default async function(ws) {
-    console.log("closed!");
+    console.log('closed!');
 }

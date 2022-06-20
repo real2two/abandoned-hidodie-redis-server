@@ -1,13 +1,13 @@
-import { get, set, del } from "../handlers/rooms.js";
+import { get, set, del } from '../handlers/rooms.js';
 
 /*
-console.log(await get("test"));
-await set("test", {
-    wowie: "cool"
+console.log(await get('test'));
+await set('test', {
+    wowie: 'cool'
 });
-console.log(await get("test"));
+console.log(await get('test'));
 */
 
 export default async function(ws) {
-    console.log("joined!");
+    console.log('joined!', ws);
 }
