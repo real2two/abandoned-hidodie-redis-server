@@ -1,4 +1,4 @@
-import { get, set, del } from '../handlers/rooms.js';
+import { test } from '../handlers/rooms.js';
 
 export default function(res, req, context) {
     const end = () => res.writeStatus('400').end();

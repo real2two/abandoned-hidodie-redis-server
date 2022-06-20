@@ -1,33 +1,22 @@
-import Redis from 'ioredis';
+import { redis, get, set, del } from './redis.js';
 
-const EXPIRES_IN = 86400; // 1 day.
-const client = new Redis();
+/*
+console.log(await get('test'));
+await set('test', {
+    wowie: 'cool'
+});
+console.log(await get('test'));
 
-client.on('error', err => console.log('Redis client error.', err));
+await del("test");
+*/
 
-async function get(key) {
-    return JSON.parse(await client.call('JSON.GET', key, '.'));
-}
 
-async function set(key, value) {
-    return await new Promise((resolve, reject) => {
-        client
-            .multi()
-            .call('JSON.SET', key, '.', JSON.stringify(value))
-            .expire(key, EXPIRES_IN)
-            .exec((err, results) => {
-                if (err) return reject(err);
-                return resolve(results);
-            });
-    });
-}
+// Note: This file should contain room caching, room creation/join/etc, subscription events and etc.
 
-async function del(key) {
-    return await client.del(key);
+function test() {
+    return true;
 }
 
 export {
-    get,
-    set,
-    del
-};
+    test
+}

@@ -1,4 +1,3 @@
-import { get, set, del } from '../handlers/rooms.js';
 const enc = new TextDecoder('utf-8');
 
 export default function(ws, message, isBinary) {
