@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
-import cluster from 'node:cluster';
-import { cpus } from 'node:os';
+import cluster from 'cluster';
+import { cpus } from 'os';
 
 const clusterCount = parseFloat(process.env.CLUSTERS) || cpus().length;
 

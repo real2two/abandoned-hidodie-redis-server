@@ -5,10 +5,6 @@ const client = new Redis();
 
 client.on('error', err => console.log('Redis client error.', err));
 
-client.on('connect', async () => {
-    //await client.flushAll();
-});
-
 async function get(key) {
     return JSON.parse(await client.call("JSON.GET", key, "."));
 }
