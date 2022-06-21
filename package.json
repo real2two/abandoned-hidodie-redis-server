@@ -6,6 +6,7 @@
   "dependencies": {
     "dotenv": "^16.0.1",
     "ioredis": "^5.0.6",
+    "lodash.clonedeep": "^4.5.0",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.10.0"
   }
 }

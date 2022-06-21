@@ -9,11 +9,11 @@ async function get(key, paths = "") {
     return JSON.parse(await redis.call('JSON.GET', key, `.${paths}`));
 }
 
-async function set(key, value, pathsOrNX = false) {
+async function set(key, value, NX = false) {
     return await new Promise((resolve, reject) => {
         redis
             .multi()
-            .call('JSON.SET', key, `.${typeof pathsOrNX === "string" ? pathsOrNX : ""}`, JSON.stringify(value), pathsOrNX === true ? 'NX' : 'XX')
+            .call('JSON.SET', key, '.', JSON.stringify(value), NX === true ? 'NX' : 'XX')
             .expire(key, EXPIRES_IN)
             .exec((err, results) => {
                 if (err) return reject(err);
@@ -22,14 +22,27 @@ async function set(key, value, pathsOrNX = false) {
     });
 }
 
+// I need to make it so the "modify()" function moves the variable expiration date.
+async function modify(key, paths, value) {
+    return await redis.call('JSON.SET', key, paths, JSON.stringify(value));
+}
+
+// Used to move the key expiration date.
+async function renew(key) {
+    return await redis.expire(key, EXPIRES_IN);
+}
+
 async function del(key) {
     return await redis.del(key);
 }
 
 export {
     redis,
+    EXPIRES_IN,
 
     get,
     set,
+    modify,
+    renew,
     del
 };
