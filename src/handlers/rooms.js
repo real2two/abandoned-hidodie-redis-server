@@ -4,6 +4,7 @@ import Redis from 'ioredis';
 import { redis, EXPIRES_IN, get, set, modify, renew, del } from './redis.js';
 const sub = new Redis();
 
+const MAX_PLAYERS = 10;
 const RENEWS_IN = (EXPIRES_IN * 500); // EXPIRES_IN (in seconds) * 1000 (now in ms) / 2
 
 /*
@@ -84,12 +85,22 @@ sub.on("message", async (roomID, message) => {
     if (!rooms[roomID]) return await sub.unsubscribe(roomID);
 
     switch (value.event) {
+        // A player joins the game.
         case "NEW_PLAYER":
             rooms[roomID].players[value.username] = value.info;
             break;
+
+        // A player attempts to join the game when there's over the maximum amount of players and the variable was set.
+        case "REMOVE_FAKE":
+            delete rooms[roomID].players[value.username];
+            break;
+
+        // Renew the 'roomID' key on the Redis database.
         case "RENEWED":
             rooms[roomID].renews_in = performance.now() + RENEWS_IN;
             break;
+        
+        // The room was removed.
         case "ROOM_REMOVED":
             await sub.unsubscribe(roomID);
             delete rooms[roomID];
@@ -141,21 +152,30 @@ async function fetch(roomID) {
 
 async function addPlayer(roomID, username) {
     const room = await get(roomID);
-    if (!room) return;
+    if (!room) return null;
 
-    if (Object.entries(room.players).length >= 10) return;
-
-    rooms[roomID] = room;
-    renewRoom(roomID);
-    await sub.subscribe(roomID);
-
-    // I should add more username checking here.
+    if (Object.entries(room.players).length >= 10) return null;
 
     // I should set the (first) player's data (like position) based on the map information. (don't forget to add this to create() too.)
     const playerInfo = cloneDeep(playerTemplate);
 
-    await modify(roomID, `.players['${username.replace(/'/g, "\\'")}']`, playerInfo);
-    //rooms[roomID].players[username] = playerInfo;
+    const paths = `.players['${username.replace(/'/g, "\\'")}']`;
+
+    const result = await modify(roomID, paths, playerInfo, true);
+    if (result !== "OK") return null; // Username already taken.
+
+    const playerLength = await redis.call('JSON.OBJLEN', roomID, '.players');
+    if (playerLength > MAX_PLAYERS) {
+        // There are already the maximum amount of players in the room.
+
+        await del(roomID, paths);
+        await publish(roomID, "REMOVE_FAKE", { username });
+        return null;
+    }
+
+    rooms[roomID] = room;
+    renewRoom(roomID);
+    await sub.subscribe(roomID);
     
     await publish(roomID, "NEW_PLAYER", { username, info: playerInfo });
 
@@ -182,3 +202,14 @@ export {
     fetch,
     remove
 }
+
+/* TESTING DELETE THIS */
+
+/*
+const roomID = await create("two");
+if (!roomID) {
+    console.log(2, await addPlayer("test", "two2"))
+} else {
+    console.log(1, rooms[roomID])
+}
+*/
