@@ -20,7 +20,9 @@ export default async function(ws) {
                 players.splice(index);
             }
 
-            const newHost = players[Math.floor(Math.random() * players.length)];
+            const newHost = players[Math.floor(Math.random() * players.length)][0];
+            if (!newHost) return remove(ws.room);
+
             await modify(ws.room, 'host', newHost);
             await publish(ws.room, 'NEW_HOST', { username: newHost });
         }

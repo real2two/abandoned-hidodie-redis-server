@@ -45,15 +45,23 @@ const rooms = {};
 const playerLength = async roomID => await redis.call('JSON.OBJLEN', roomID, '$.players');
 const playerList = async roomID => await redis.call('JSON.OBJKEYS', roomID, '$.players');
 
-setInterval(async () => {
+setInterval(roomChecks, 10000);
+
+async function roomChecks() {
     for (const [ roomID, { players, renews_in } ] of Object.entries(rooms)) {
+        for (const [ username, player ] of Object.entries(players)) {
+            if (player.ws) {
+                if (player.ws.closed === true) delete players[username];
+            }
+        }
+
         if (Object.entries(players).length === 0) {
-            remove(roomID);
+            await remove(roomID);
         } else if (performance.now() > renews_in) {
-            renewRoom(roomID);
+            await renewRoom(roomID);
         }
     }
-}, 10000);
+}
 
 sub.on('message', async (roomID, message) => {
     const value = JSON.parse(message);
@@ -64,7 +72,9 @@ sub.on('message', async (roomID, message) => {
     switch (value.event) {
         // A player joins the game.
         case 'NEW_PLAYER':
-            room.players[value.username] = value.info;
+            if (!room.players[value.username]) room.players[value.username] = value.info;
+            changeQuickJoinPublicity(roomID);
+
             break;
 
         // New host.
@@ -82,7 +92,6 @@ sub.on('message', async (roomID, message) => {
                 }
             }
 
-            if (await get(roomID)) await del(roomID); // Just in case removePlayer() didn't call it.
             await removeHandler(roomID); // Removes handler if it's no longer necessary. (aka no players in the cluster is playing in the room.)
 
             break;
@@ -118,7 +127,9 @@ async function create(username, isPublic = true) {
         // Room data.
 
         host: username,
-        public: isPublic ? "1" : "0", // (string) "1" = true | "0" = false
+
+        public: isPublic,
+        isPublic: isPublic ? "1" : "0", // (string) "1" = true | "0" = false
 
         map,
 
@@ -134,6 +145,19 @@ async function create(username, isPublic = true) {
 
         players
     };
+
+    /*
+    // Placeholder code to put somewhere.
+
+    if (roomInfo.public === true) {
+        roomInfo.isPublic = "1";
+    } else {
+        roomInfo.isPublic = "0";
+    }
+
+    const result = await modify(roomID, 'isPublic', roomInfo.isPublic);
+    if (result !== 'OK') return null;
+    */
 
     const result = await set(roomID, roomInfo, true);
     if (result === false) return null;
@@ -151,11 +175,20 @@ async function fetch(roomID) {
     return rooms[roomID] || await get(roomID);
 }
 
-async function addPlayer(roomID, username) {
+async function addPlayer(roomID, ws) {
     const room = await fetch(roomID);
     if (!room) return null;
 
-    if (await playerLength(roomID) >= 10) return null;
+    const username = ws.username;
+
+    const playerCount = await playerLength(roomID)
+    if (playerCount > MAX_PLAYERS) {
+        // There are already the maximum amount of players in the room.
+
+        await del(roomID, paths);
+        await publish(roomID, 'REMOVE_FAKE', { username });
+        return null;
+    }
 
     // I should set the (first) player's data (like position) based on the map information. (don't forget to add this to create() too.)
     const playerInfo = cloneDeep(playerTemplate);
@@ -166,20 +199,14 @@ async function addPlayer(roomID, username) {
     const result = await modify(roomID, paths, playerInfo, true);
     if (result !== 'OK') return null; // Username already taken.
 
-    if (await playerLength(roomID) > MAX_PLAYERS) {
-        // There are already the maximum amount of players in the room.
-
-        await del(roomID, paths);
-        await publish(roomID, 'REMOVE_FAKE', { username });
-        return null;
-    }
-
     if (!rooms[roomID]) {
         rooms[roomID] = room;
         renewRoom(roomID);
         await sub.subscribe(roomID);
     }
     
+    playerInfo.ws = ws;
+    room.players[username] = playerInfo;
     await publish(roomID, 'NEW_PLAYER', { username, info: playerInfo });
 
     return rooms[roomID];
@@ -228,19 +255,51 @@ async function removeHandler(roomID) {
         }
     }
     
+    if (await get(roomID)) await del(roomID);
     delete rooms[roomID];
+}
+
+async function changeQuickJoinPublicity(roomID) {
+    const roomInfo = rooms[roomID];
+    if (!roomInfo) return;
+
+    if (roomInfo.public) {
+        const playerCount = await playerLength(roomID);
+
+        const shouldBe = (playerCount < 1 || playerCount >= MAX_PLAYERS) ? "0" : "1";
+        if (roomInfo.isPublic !== shouldBe) {
+            roomInfo.isPublic = shouldBe;
+            await modify(roomID, 'isPublic', roomInfo.isPublic);
+        }
+    }
+}
+
+async function findPublic() {
+    const result = await redis.call('FT.SEARCH', 'findPublic', '@isPublic:1');
+    
+    const amountOpened = result.shift();
+    const openRooms = [];
+
+    for (let i = 0; i < amountOpened; ++i) {
+        openRooms.push(result.shift());
+        result.shift();
+    }
+
+    return openRooms;
 }
 
 export {
     MAX_PLAYERS,
     
     rooms,
+    roomChecks,
 
     modify,
     publish,
 
     create,
     fetch,
+    findPublic,
 
     playerLength,
     playerList,

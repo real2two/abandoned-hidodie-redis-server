@@ -5,12 +5,8 @@ const redis = new Redis();
 
 redis.on('error', err => console.log(err));
 
-async function findPublic() {
-    //
-}
-
 async function get(key, paths = "") {
-    return JSON.parse(await redis.call('JSON.GET', key, `$.${paths}`));
+    return JSON.parse(await redis.call('JSON.GET', key, `$${paths ? `.${paths}` : ''}`));
 }
 
 async function set(key, value, NX = false) {
@@ -28,7 +24,7 @@ async function set(key, value, NX = false) {
 
 // I need to make it so the "modify()" function moves the variable expiration date.
 async function modify(key, paths, value, NX = false) {
-    return await redis.call('JSON.SET', key, `$.${paths}`, JSON.stringify(value), NX === true ? 'NX' : 'XX');
+    return await redis.call('JSON.SET', key, `$${paths ? `.${paths}` : ''}`, JSON.stringify(value), NX === true ? 'NX' : 'XX');
 }
 
 // Used to move the key expiration date.

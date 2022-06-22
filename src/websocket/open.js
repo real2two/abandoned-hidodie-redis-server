@@ -1,4 +1,4 @@
-import { MAX_PLAYERS, rooms, create, fetch, addPlayer } from '../handlers/rooms.js';
+import { MAX_PLAYERS, roomChecks, create, fetch, addPlayer, findPublic } from '../handlers/rooms.js';
 
 export default async function(ws) {
     ws.sendJSON = (e, v = {}) => {
@@ -19,6 +19,8 @@ export default async function(ws) {
         }
     }
 
+    await roomChecks();
+
     let { username, room } = ws;
     
     if (typeof room === 'string') {
@@ -28,6 +30,9 @@ export default async function(ws) {
             // I should make it pick (or create) a public room in open.js.
             //ws.room = 'roomID';
 
+
+            await findPublic();
+            
             return ws.safelyClose(); // TEMPORARY!!! MAKE QUICK JOIN WORK!!!
         } else {
             // Join room.
@@ -47,7 +52,7 @@ export default async function(ws) {
             }
             ws.username = username;
 
-            const success = await addPlayer(room, username);
+            const success = await addPlayer(room, ws);
             if (!success) return ws.safelyClose();
         }
     } else {
@@ -60,8 +65,6 @@ export default async function(ws) {
         
         ws.room = roomID;
     }
-
-    rooms[ws.room].players[ws.username].ws = ws;
 
     ws.connected = true;
 
