@@ -2,8 +2,10 @@ import { WebSocketShard } from 'discord.js';
 import { MAX_PLAYERS, create, fetch, addPlayer, remove } from '../handlers/rooms.js';
 
 export default async function(ws) {
-    const { username, room } = ws;
+    ws.sendJSON = (e, v = {}) => ws.send(JSON.stringify({ ...v, e }));
+    ws.sendBinary = value => ws.send(new Uint8Array(value), true, true);
 
+    let { username, room } = ws;
     
     if (typeof room === 'string') {
         if (room === "q") {
@@ -23,20 +25,13 @@ export default async function(ws) {
             if (playerCount === 0) return ws.close(); // Disallow joining the room if there is no players in the room.
             if (playerCount > MAX_PLAYERS) return ws.close(); // Room already has maximum quantity of players connected.
 
-            /*
-                MAKE "DUPE CHECKS" FOR USERNAMES! (I need to make "rooms" work first with Redis.)
+            const oldUsername = username;
 
-                const oldUsername = username;
-                for (let x = 2; isUsernameDupe(); ++x) {
-                    username = oldUsername + x;
-                }
-
-                function isUsernameDupe() {
-                    for (const playerName of players.map(p => p.username)) {
-                        if (username === playerName) return true;
-                    }
-                }
-            */
+            const players = Object.entries(roomInfo.players).map(p => p[0]);
+            for (let x = 2; players.find(u => u === username); ++x) {
+                username = oldUsername + x;
+            }
+            ws.username = username;
 
             const success = await addPlayer(room, username);
             if (!success) return ws.close();
@@ -55,6 +50,7 @@ export default async function(ws) {
 
     ws.connected = true;
 
+    ws.sendJSON('open', { hello: "world", room: ws.room, username });
     
     console.log('joined!', ws);
 }

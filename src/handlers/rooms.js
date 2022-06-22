@@ -7,6 +7,7 @@ const sub = new Redis();
 
 const MAX_PLAYERS = 10;
 const RENEWS_IN = (EXPIRES_IN * 500); // EXPIRES_IN (in seconds) * 1000 (now in ms) / 2
+const PROCESS_PID = `${process.env.PROCESS_PREFIX}#${process.pid}`;
 
 /*
 // Get room information.
@@ -41,7 +42,13 @@ const playerTemplate = {
 
 const rooms = {};
 
-const playerLength = async roomID => await redis.call('JSON.OBJLEN', roomID, '.players');
+const playerLength = async roomID => {
+    if (rooms[roomID]) {
+        return Object.entries(rooms[roomID].players).length;
+    } else {
+        return await redis.call('JSON.OBJLEN', roomID, '.players');
+    }
+}
 
 setInterval(() => {
     for (const [ roomID, { renews_in } ] of Object.entries(rooms)) {
@@ -67,8 +74,8 @@ sub.on("message", async (roomID, message) => {
         case "PLAYER_DISCONNECTED":
             delete room.players[value.username];
 
-            for (const [ , info ] of Object.entries(room.players)) {
-                if (info.process === process.pid) {
+            for (const [ , { process } ] of Object.entries(room.players)) {
+                if (process === PROCESS_PID) {
                     return;
                 }
             }
@@ -102,7 +109,7 @@ async function create(username, isPublic = true) {
 
     // I should set the (first) player's data (like position) based on the map information. (don't forget to add this to addPlayer() too.)
     players[username] = cloneDeep(playerTemplate);
-    players[username].process = process.pid;
+    players[username].process = PROCESS_PID;
 
     const roomInfo = {
         // Room data.
@@ -143,11 +150,11 @@ async function addPlayer(roomID, username) {
     const room = await fetch(roomID);
     if (!room) return null;
 
-    if (Object.entries(room.players).length >= 10) return null;
+    if (await playerLength(roomID) >= 10) return null;
 
     // I should set the (first) player's data (like position) based on the map information. (don't forget to add this to create() too.)
     const playerInfo = cloneDeep(playerTemplate);
-    playerInfo.process = process.pid;
+    playerInfo.process = PROCESS_PID;
 
     const paths = `players['${username.replace(/'/g, "\\'")}']`;
 
@@ -177,7 +184,7 @@ async function removePlayer(roomID, username) {
 
     await del(roomID, `players['${username.replace(/'/g, "\\'")}']`);
 
-    if (Object.entries(room.players).length <= 1) {
+    if (await playerLength(roomID) <= 1) {
         remove(roomID);
     } else {
         await publish(roomID, "PLAYER_DISCONNECTED", { username });
