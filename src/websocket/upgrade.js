@@ -1,4 +1,4 @@
-import { get, create, fetch, addPlayer, remove } from '../handlers/rooms.js';
+import { MAX_PLAYERS, playerLength } from '../handlers/rooms.js'; // fetch, 
 
 export default function(res, req, context) {
     const end = () => res.writeStatus('400').end();
@@ -30,21 +30,6 @@ export default function(res, req, context) {
         username.length > 13
     ) return end();
 
-    /*
-        MAKE "DUPE CHECKS" FOR USERNAMES! (I need to make "rooms" work first with Redis.)
-
-        const oldUsername = username;
-        for (let x = 2; isUsernameDupe(); ++x) {
-            username = oldUsername + x;
-        }
-
-        function isUsernameDupe() {
-            for (const playerName of players.map(p => p.username)) {
-                if (username === playerName) return true;
-            }
-        }
-    */
-
     let room = null;
 
     // Note: Most of the room choosing should be in ./open.js!
@@ -62,6 +47,11 @@ export default function(res, req, context) {
             // Join room.
 
             // If the room doesn't exist, execute end().
+            // I should perform these checks again in open.js.
+            
+            const playerCount = await playerLength(roomID);
+            if (playerCount === null) return end(); // Room doesn't exist.
+            if (playerCount > MAX_PLAYERS) return end(); // Room already has maximum quantity of players connected.
 
             room = roomID;
         }
@@ -76,6 +66,7 @@ export default function(res, req, context) {
 
     res.upgrade(
         {
+            connected: false,
             username,
             room
         },
