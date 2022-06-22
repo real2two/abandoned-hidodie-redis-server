@@ -1,6 +1,12 @@
 {
+  "name": "hidodie",
+  "main": "src/handlers/cluster.js",
+  "author": "Two",
+  "type": "module",
   "dependencies": {
-    "dotenv": "^16.0.0",
-    "scuffed-rooms": "^0.0.15"
+    "dotenv": "^16.0.1",
+    "ioredis": "^5.0.6",
+    "lodash.clonedeep": "^4.5.0",
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.10.0"
   }
 }
