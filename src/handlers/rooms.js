@@ -42,23 +42,20 @@ const playerTemplate = {
 
 const rooms = {};
 
-const playerLength = async roomID => {
-    if (rooms[roomID]) {
-        return Object.entries(rooms[roomID].players).length;
-    } else {
-        return await redis.call('JSON.OBJLEN', roomID, '.players');
-    }
-}
+const playerLength = async roomID => await redis.call('JSON.OBJLEN', roomID, '.players');
+const playerList = async roomID => await redis.call('JSON.OBJKEYS', roomID, '.players');
 
-setInterval(() => {
-    for (const [ roomID, { renews_in } ] of Object.entries(rooms)) {
-        if (performance.now() > renews_in) {
+setInterval(async () => {
+    for (const [ roomID, { players, renews_in } ] of Object.entries(rooms)) {
+        if (Object.entries(players).length === 0) {
+            remove(roomID);
+        } else if (performance.now() > renews_in) {
             renewRoom(roomID);
         }
     }
 }, 10000);
 
-sub.on("message", async (roomID, message) => {
+sub.on('message', async (roomID, message) => {
     const value = JSON.parse(message);
     
     const room = rooms[roomID];
@@ -66,12 +63,17 @@ sub.on("message", async (roomID, message) => {
 
     switch (value.event) {
         // A player joins the game.
-        case "NEW_PLAYER":
+        case 'NEW_PLAYER':
             room.players[value.username] = value.info;
             break;
 
+        // New host.
+        case 'NEW_HOST':
+            room.host = value.username;
+            break;
+
         // A player disconnects from the game.
-        case "PLAYER_DISCONNECTED":
+        case 'PLAYER_DISCONNECTED':
             delete room.players[value.username];
 
             for (const [ , { process } ] of Object.entries(room.players)) {
@@ -80,22 +82,23 @@ sub.on("message", async (roomID, message) => {
                 }
             }
 
+            if (await get(roomID)) await del(roomID); // Just in case removePlayer() didn't call it.
             await removeHandler(roomID); // Removes handler if it's no longer necessary. (aka no players in the cluster is playing in the room.)
 
             break;
 
         // A player attempts to join the game when there's over the maximum amount of players and the variable was set.
-        case "REMOVE_FAKE":
+        case 'REMOVE_FAKE':
             delete room.players[value.username];
             break;
 
         // Renew the 'roomID' key on the Redis database.
-        case "RENEWED":
+        case 'RENEWED':
             room.renews_in = performance.now() + RENEWS_IN;
             break;
         
         // The room was removed.
-        case "ROOM_REMOVED":
+        case 'ROOM_REMOVED':
             await removeHandler(roomID);
             break;
     }
@@ -135,9 +138,11 @@ async function create(username, isPublic = true) {
     const result = await set(roomID, roomInfo, true);
     if (result === false) return null;
 
-    rooms[roomID] = roomInfo;
-    renewRoom(roomID);
-    await sub.subscribe(roomID);
+    if (!rooms[roomID]) {
+        rooms[roomID] = roomInfo;
+        renewRoom(roomID);
+        await sub.subscribe(roomID);
+    }
 
     return roomID;
 }
@@ -159,21 +164,23 @@ async function addPlayer(roomID, username) {
     const paths = `players['${username.replace(/'/g, "\\'")}']`;
 
     const result = await modify(roomID, paths, playerInfo, true);
-    if (result !== "OK") return null; // Username already taken.
+    if (result !== 'OK') return null; // Username already taken.
 
     if (await playerLength(roomID) > MAX_PLAYERS) {
         // There are already the maximum amount of players in the room.
 
         await del(roomID, paths);
-        await publish(roomID, "REMOVE_FAKE", { username });
+        await publish(roomID, 'REMOVE_FAKE', { username });
         return null;
     }
 
-    rooms[roomID] = room;
-    renewRoom(roomID);
-    await sub.subscribe(roomID);
+    if (!rooms[roomID]) {
+        rooms[roomID] = room;
+        renewRoom(roomID);
+        await sub.subscribe(roomID);
+    }
     
-    await publish(roomID, "NEW_PLAYER", { username, info: playerInfo });
+    await publish(roomID, 'NEW_PLAYER', { username, info: playerInfo });
 
     return rooms[roomID];
 }
@@ -184,20 +191,24 @@ async function removePlayer(roomID, username) {
 
     await del(roomID, `players['${username.replace(/'/g, "\\'")}']`);
 
-    if (await playerLength(roomID) <= 1) {
+    if (await playerLength(roomID) === 0) {
         remove(roomID);
+        return true;
     } else {
-        await publish(roomID, "PLAYER_DISCONNECTED", { username });
+        await publish(roomID, 'PLAYER_DISCONNECTED', { username });
+        return false;
     }
 }
 
 async function remove(roomID) {
-    await publish(roomID, "ROOM_REMOVED");
     await del(roomID);
+    await publish(roomID, 'ROOM_REMOVED');
 }
 
 async function renewRoom(roomID) {
-    await publish(roomID, "RENEWED");
+    if (!rooms[roomID]) return;
+
+    await publish(roomID, 'RENEWED');
     await renew(roomID);
     rooms[roomID].renews_in = performance.now() + RENEWS_IN;
 }
@@ -208,15 +219,32 @@ async function publish(roomID, event, data = {}) {
 
 async function removeHandler(roomID) {
     await sub.unsubscribe(roomID);
+
+    for (const [ , { ws, process } ] of Object.entries(rooms[roomID].players)) {
+        if (ws && process === PROCESS_PID) {
+            if (!ws.closed) {
+                ws.close();
+            }
+        }
+    }
+    
     delete rooms[roomID];
 }
 
 export {
     MAX_PLAYERS,
     
+    rooms,
+
+    modify,
+    publish,
+
     create,
     fetch,
+
     playerLength,
+    playerList,
+    
     addPlayer,
-    remove
+    removePlayer
 }
