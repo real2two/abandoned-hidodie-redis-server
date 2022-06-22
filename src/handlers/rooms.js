@@ -159,7 +159,7 @@ async function addPlayer(roomID, username) {
     // I should set the (first) player's data (like position) based on the map information. (don't forget to add this to create() too.)
     const playerInfo = cloneDeep(playerTemplate);
 
-    const paths = `.players['${username.replace(/'/g, "\\'")}']`;
+    const paths = `players['${username.replace(/'/g, "\\'")}']`;
 
     const result = await modify(roomID, paths, playerInfo, true);
     if (result !== "OK") return null; // Username already taken.
@@ -198,8 +198,10 @@ async function publish(roomID, event, data = {}) {
 }
 
 export {
+    get,
     create,
     fetch,
+    addPlayer,
     remove
 }
 

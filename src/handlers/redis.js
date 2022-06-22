@@ -24,7 +24,7 @@ async function set(key, value, NX = false) {
 
 // I need to make it so the "modify()" function moves the variable expiration date.
 async function modify(key, paths, value, NX = false) {
-    return await redis.call('JSON.SET', key, paths, JSON.stringify(value), NX === true ? 'NX' : 'XX');
+    return await redis.call('JSON.SET', key, `.${paths}`, JSON.stringify(value), NX === true ? 'NX' : 'XX');
 }
 
 // Used to move the key expiration date.
@@ -32,9 +32,9 @@ async function renew(key) {
     return await redis.expire(key, EXPIRES_IN);
 }
 
-async function del(key, path) {
-    if (path) {
-        return await redis.call('JSON.DEL', key, path);
+async function del(key, paths) {
+    if (paths) {
+        return await redis.call('JSON.DEL', key, `.${paths}`);
     } else {
         return await redis.del(key);
     }

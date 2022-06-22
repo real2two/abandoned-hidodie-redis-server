@@ -1,4 +1,4 @@
-import { create, fetch, remove } from '../handlers/rooms.js';
+import { get, create, fetch, addPlayer, remove } from '../handlers/rooms.js';
 
 export default function(res, req, context) {
     const end = () => res.writeStatus('400').end();
