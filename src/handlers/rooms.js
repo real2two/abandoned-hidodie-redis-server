@@ -8,56 +8,25 @@ const MAX_PLAYERS = 10;
 const RENEWS_IN = (EXPIRES_IN * 500); // EXPIRES_IN (in seconds) * 1000 (now in ms) / 2
 
 /*
-console.log(await get('test'));
-await set('test', {
-    wowie: 'cool'
-});
-console.log(await get('test'));
+// Get room information.
+await get(roomID);
+await get(roomID, paths);
 
-await del("test");
+// Set room information.
+await set('roomID', { ... });
+await modify(roomID, paths, data);
 
-// set(key, value, true); // to create a new key.
-// del(key, value); // to modify existing keys.
+// Creates a room.
+const roomID = await create(username);
 
-console.log(
-    await set("test", { lol: true }, true)
-)
+// Join a room.
+await addPlayer(roomID, username);
 
-console.log(
-    await set("test", { b: "a" }, true)
-)
+// Publish information into all clusters with new room information.
+await redis.publish(roomID, { ... });
 
-const value = await get('test');
-console.log(value, typeof value)
-
-// more testing
-
-await del("test");
-await redis.publish("test", "b");
-console.log(await create("two"));
-await redis.publish("test", "eb");
-await remove("test")
-await redis.publish("test", "lol");
-
-// testing where the room id is forced to be "test"
-
-const roomID = await create("two");
-if (!roomID) {
-    console.log(2, await addPlayer("test", "two2"))
-} else {
-    console.log(1, rooms[roomID])
-}
-
-setTimeout(() => {
-    console.log(rooms['test'])
-}, 1000)
-*/
-
-/*
-// getting rid of the room "test"
-
-await del("test");
-throw "lol";
+// Deletes a room.
+await remove(roomID);
 */
 
 const playerTemplate = {
@@ -204,14 +173,3 @@ export {
     addPlayer,
     remove
 }
-
-/* TESTING DELETE THIS */
-
-/*
-const roomID = await create("two");
-if (!roomID) {
-    console.log(2, await addPlayer("test", "two2"))
-} else {
-    console.log(1, rooms[roomID])
-}
-*/
