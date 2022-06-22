@@ -5,15 +5,19 @@ const redis = new Redis();
 
 redis.on('error', err => console.log(err));
 
+async function findPublic() {
+    //
+}
+
 async function get(key, paths = "") {
-    return JSON.parse(await redis.call('JSON.GET', key, `.${paths}`));
+    return JSON.parse(await redis.call('JSON.GET', key, `$.${paths}`));
 }
 
 async function set(key, value, NX = false) {
     return await new Promise((resolve, reject) => {
         redis
             .multi()
-            .call('JSON.SET', key, '.', JSON.stringify(value), NX === true ? 'NX' : 'XX')
+            .call('JSON.SET', key, '$', JSON.stringify(value), NX === true ? 'NX' : 'XX')
             .expire(key, EXPIRES_IN)
             .exec((err, results) => {
                 if (err) return reject(err);
@@ -24,7 +28,7 @@ async function set(key, value, NX = false) {
 
 // I need to make it so the "modify()" function moves the variable expiration date.
 async function modify(key, paths, value, NX = false) {
-    return await redis.call('JSON.SET', key, `.${paths}`, JSON.stringify(value), NX === true ? 'NX' : 'XX');
+    return await redis.call('JSON.SET', key, `$.${paths}`, JSON.stringify(value), NX === true ? 'NX' : 'XX');
 }
 
 // Used to move the key expiration date.
@@ -34,7 +38,7 @@ async function renew(key) {
 
 async function del(key, paths) {
     if (paths) {
-        return await redis.call('JSON.DEL', key, `.${paths}`);
+        return await redis.call('JSON.DEL', key, `$.${paths}`);
     } else {
         return await redis.del(key);
     }

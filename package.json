@@ -10,6 +10,6 @@
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.10.0"
   },
   "scripts": {
-    "start": "node ./dev/reset.js | node ."
+    "reset": "node ./dev/reset.js"
   }
 }

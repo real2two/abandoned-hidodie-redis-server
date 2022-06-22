@@ -42,8 +42,8 @@ const playerTemplate = {
 
 const rooms = {};
 
-const playerLength = async roomID => await redis.call('JSON.OBJLEN', roomID, '.players');
-const playerList = async roomID => await redis.call('JSON.OBJKEYS', roomID, '.players');
+const playerLength = async roomID => await redis.call('JSON.OBJLEN', roomID, '$.players');
+const playerList = async roomID => await redis.call('JSON.OBJKEYS', roomID, '$.players');
 
 setInterval(async () => {
     for (const [ roomID, { players, renews_in } ] of Object.entries(rooms)) {
@@ -118,7 +118,7 @@ async function create(username, isPublic = true) {
         // Room data.
 
         host: username,
-        public: isPublic,
+        public: isPublic ? "1" : "0", // (string) "1" = true | "0" = false
 
         map,
 
