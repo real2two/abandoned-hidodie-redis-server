@@ -305,5 +305,7 @@ export {
     playerList,
     
     addPlayer,
-    removePlayer
+    removePlayer,
+
+    remove
 }

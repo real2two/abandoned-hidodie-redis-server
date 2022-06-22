@@ -1,4 +1,4 @@
-import { modify, publish, fetch, playerList, removePlayer } from '../handlers/rooms.js';
+import { modify, publish, fetch, playerList, removePlayer, remove } from '../handlers/rooms.js';
 
 export default async function(ws) {
     ws.closed = true;
