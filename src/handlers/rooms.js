@@ -9,28 +9,6 @@ const MAX_PLAYERS = 10;
 const RENEWS_IN = (EXPIRES_IN * 500); // EXPIRES_IN (in seconds) * 1000 (now in ms) / 2
 const PROCESS_PID = `${process.env.PROCESS_PREFIX}#${process.pid}`;
 
-/*
-// Get room information.
-await get(roomID);
-await get(roomID, paths);
-
-// Set room information.
-await set('roomID', { ... });
-await modify(roomID, paths, data);
-
-// Creates a room.
-const roomID = await create(username);
-
-// Join a room.
-await addPlayer(roomID, username);
-
-// Publish information into all clusters with new room information.
-await redis.publish(roomID, { ... });
-
-// Deletes a room.
-await remove(roomID);
-*/
-
 const playerTemplate = {
     pos: {
         x: 0,
@@ -92,13 +70,26 @@ sub.on('message', async (roomID, message) => {
                 }
             }
 
-            await removeHandler(roomID); // Removes handler if it's no longer necessary. (aka no players in the cluster is playing in the room.)
+            await removeHandler(roomID); // Removes subscribe handler if it's no longer necessary. (aka no players in the cluster is playing in the room.)
 
             break;
 
         // A player attempts to join the game when there's over the maximum amount of players and the variable was set.
         case 'REMOVE_FAKE':
             delete room.players[value.username];
+            break;
+
+        // Toggle the "public" state of the room.
+        case 'TOGGLE_PUBLIC':
+            room.public = value.public;
+
+            if (value.public === true) {
+                changeQuickJoinPublicity(roomID);
+            } else {
+                room.isPublic = '0';
+                await modify(roomID, 'isPublic', room.isPublic);
+            }
+
             break;
 
         // Renew the 'roomID' key on the Redis database.
@@ -119,7 +110,7 @@ async function create(username, isPublic = true) {
     const map = 'default';
     const players = {};
 
-    // I should set the (first) player's data (like position) based on the map information. (don't forget to add this to addPlayer() too.)
+    // IMPORTANT NOTE: I should set the (first) player's data (like position) based on the map information. (don't forget to add this to addPlayer() too.)
     players[username] = cloneDeep(playerTemplate);
     players[username].process = PROCESS_PID;
 
@@ -145,19 +136,6 @@ async function create(username, isPublic = true) {
 
         players
     };
-
-    /*
-    // Placeholder code to put somewhere.
-
-    if (roomInfo.public === true) {
-        roomInfo.isPublic = "1";
-    } else {
-        roomInfo.isPublic = "0";
-    }
-
-    const result = await modify(roomID, 'isPublic', roomInfo.isPublic);
-    if (result !== 'OK') return null;
-    */
 
     const result = await set(roomID, roomInfo, true);
     if (result === false) return null;
@@ -190,7 +168,7 @@ async function addPlayer(roomID, ws) {
         return null;
     }
 
-    // I should set the (first) player's data (like position) based on the map information. (don't forget to add this to create() too.)
+    // IMPORTANT NOTE: I should set the (first) player's data (like position) based on the map information. (don't forget to add this to create() too.)
     const playerInfo = cloneDeep(playerTemplate);
     playerInfo.process = PROCESS_PID;
 
@@ -274,6 +252,23 @@ async function changeQuickJoinPublicity(roomID) {
     }
 }
 
+async function togglePublicity(roomID) {
+    const roomInfo = rooms[roomID];
+    if (!roomInfo) return;
+
+    // Placeholder code to put somewhere.
+
+    roomInfo.public = !roomInfo.public;
+
+    if (roomInfo.public === true) {
+        changeQuickJoinPublicity()
+    } else {
+        roomInfo.isPublic = "0";
+    }
+
+    await publish(roomID, 'TOGGLE_PUBLIC', { public: roomInfo.public });
+}
+
 async function findPublic() {
     const result = await redis.call('FT.SEARCH', 'findPublic', '@isPublic:1');
     
@@ -296,6 +291,7 @@ export {
 
     modify,
     publish,
+    togglePublicity,
 
     create,
     fetch,

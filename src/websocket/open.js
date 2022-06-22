@@ -55,17 +55,18 @@ export default async function(ws) {
     } else {
         // Create room.
 
-        // add "server is overloaded.".
-
         const roomID = await create(username);
         if (!roomID) return ws.safelyClose();
+        
+        // add "server is overloaded.".
         
         ws.room = roomID;
     }
 
     ws.connected = true;
 
-    ws.sendJSON('open', { hello: 'world', room: ws.room, username });
-    
-    console.log('joined!', ws);
+    ws.sendJSON('open', {
+        room: ws.room,
+        username
+    });
 }

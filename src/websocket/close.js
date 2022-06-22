@@ -27,6 +27,4 @@ export default async function(ws) {
             await publish(ws.room, 'NEW_HOST', { username: newHost });
         }
     }
-
-    console.log('closed!', ws.room, ws.username);
 }
