@@ -2,7 +2,7 @@ import process from 'process';
 import cloneDeep from 'lodash.clonedeep';
 import Redis from 'ioredis';
 
-import { redis, EXPIRES_IN, get, set, modify, renew, del } from './redis.js';
+import { redis, EXPIRES_IN, get, set, modify, renew, del, subscribe, unsubscribe } from './redis.js';
 const sub = new Redis();
 
 const MAX_PLAYERS = 10;
@@ -45,13 +45,13 @@ sub.on('message', async (roomID, message) => {
     const value = JSON.parse(message);
     
     const room = rooms[roomID];
-    if (!room) return await sub.unsubscribe(roomID);
+    if (!room) return await unsubscribe(roomID);
 
     switch (value.event) {
         // A player joins the game.
-        case 'NEW_PLAYER':
+        case 'PLAYER_JOINED':
             if (!room.players[value.username]) room.players[value.username] = value.info;
-            changeQuickJoinPublicity(roomID);
+            determineQuickJoinPublicity(roomID);
 
             break;
 
@@ -61,7 +61,7 @@ sub.on('message', async (roomID, message) => {
             break;
 
         // A player disconnects from the game.
-        case 'PLAYER_DISCONNECTED':
+        case 'PLAYER_LEFT':
             delete room.players[value.username];
 
             for (const [ , { process } ] of Object.entries(room.players)) {
@@ -84,7 +84,7 @@ sub.on('message', async (roomID, message) => {
             room.public = value.public;
 
             if (value.public === true) {
-                changeQuickJoinPublicity(roomID);
+                determineQuickJoinPublicity(roomID);
             } else {
                 room.isPublic = '0';
                 await modify(roomID, 'isPublic', room.isPublic);
@@ -100,6 +100,10 @@ sub.on('message', async (roomID, message) => {
         // The room was removed.
         case 'ROOM_REMOVED':
             await removeHandler(roomID);
+            break;
+
+        // Custom events.
+        default:
             break;
     }
 });
@@ -143,7 +147,7 @@ async function create(username, isPublic = true) {
     if (!rooms[roomID]) {
         rooms[roomID] = roomInfo;
         renewRoom(roomID);
-        await sub.subscribe(roomID);
+        await subscribe(roomID);
     }
 
     return roomID;
@@ -159,15 +163,6 @@ async function addPlayer(roomID, ws) {
 
     const username = ws.username;
 
-    const playerCount = await playerLength(roomID)
-    if (playerCount > MAX_PLAYERS) {
-        // There are already the maximum amount of players in the room.
-
-        await del(roomID, paths);
-        await publish(roomID, 'REMOVE_FAKE', { username });
-        return null;
-    }
-
     // IMPORTANT NOTE: I should set the (first) player's data (like position) based on the map information. (don't forget to add this to create() too.)
     const playerInfo = cloneDeep(playerTemplate);
     playerInfo.process = PROCESS_PID;
@@ -177,15 +172,22 @@ async function addPlayer(roomID, ws) {
     const result = await modify(roomID, paths, playerInfo, true);
     if (result !== 'OK') return null; // Username already taken.
 
+    const playerCount = await playerLength(roomID)
+    if (playerCount > MAX_PLAYERS) {
+        await del(roomID, paths);
+        await publish(roomID, 'REMOVE_FAKE', { username });
+        return null;
+    }
+
     if (!rooms[roomID]) {
         rooms[roomID] = room;
         renewRoom(roomID);
-        await sub.subscribe(roomID);
+        await subscribe(roomID);
     }
     
     playerInfo.ws = ws;
     room.players[username] = playerInfo;
-    await publish(roomID, 'NEW_PLAYER', { username, info: playerInfo });
+    await publish(roomID, 'PLAYER_JOINED', { username, info: playerInfo });
 
     return rooms[roomID];
 }
@@ -200,7 +202,7 @@ async function removePlayer(roomID, username) {
         remove(roomID);
         return true;
     } else {
-        await publish(roomID, 'PLAYER_DISCONNECTED', { username });
+        await publish(roomID, 'PLAYER_LEFT', { username });
         return false;
     }
 }
@@ -223,7 +225,7 @@ async function publish(roomID, event, data = {}) {
 }
 
 async function removeHandler(roomID) {
-    await sub.unsubscribe(roomID);
+    await unsubscribe(roomID);
 
     for (const [ , { ws, process } ] of Object.entries(rooms[roomID].players)) {
         if (ws && process === PROCESS_PID) {
@@ -237,7 +239,7 @@ async function removeHandler(roomID) {
     delete rooms[roomID];
 }
 
-async function changeQuickJoinPublicity(roomID) {
+async function determineQuickJoinPublicity(roomID) {
     const roomInfo = rooms[roomID];
     if (!roomInfo) return;
 
@@ -256,12 +258,10 @@ async function togglePublicity(roomID) {
     const roomInfo = rooms[roomID];
     if (!roomInfo) return;
 
-    // Placeholder code to put somewhere.
-
     roomInfo.public = !roomInfo.public;
 
     if (roomInfo.public === true) {
-        changeQuickJoinPublicity()
+        determineQuickJoinPublicity()
     } else {
         roomInfo.isPublic = "0";
     }
