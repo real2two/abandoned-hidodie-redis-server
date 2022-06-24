@@ -22,7 +22,7 @@ const cachedRooms = {};
 
 const publish = async (roomID, event, data = {}) => await redis.publish(roomID, JSON.stringify({ event, ...data }));
 
-const getRoom = async roomID => cachedRooms[roomID] || await get(roomID);
+const getRoom = async roomID => cachedRooms[roomID] || (await get(roomID))[0];
 const isHostCluster = roomID => {
     if (!cachedRooms[roomID]) return;
 
@@ -33,7 +33,7 @@ const isHostCluster = roomID => {
 };
 
 const usernamePath = u => `players['${u.replace(/'/g, "\\'")}']`;
-const playerList = async roomID => await redis.call('JSON.OBJKEYS', roomID, '$.players');
+const playerCount = async roomID => await redis.call('JSON.OBJLEN', roomID, '$.players');
 
 // Subscriptions.
 
@@ -97,9 +97,17 @@ async function unsubscribe(roomID) {
 // Renew rooms.
 
 setInterval(() => {
-    Object.entries(cachedRooms).forEach(async([ roomID, { renews_in } ]) => {
+    Object.entries(cachedRooms).forEach(async([ roomID, { players, renews_in } ]) => {
+        for (const [ username, player ] of Object.entries(players)) {
+            if (player.ws) {
+                if (player.ws.closed === true) removePlayer(roomID, username);
+            }
+        }
+
         if (isHostCluster(roomID)) {
-            if (performance.now() > renews_in) {
+            if (Object.entries(players).length === 0) {
+                await closeRoom(roomID);
+            } else if (performance.now() > renews_in) {
                 await renewRoom(roomID);
             }
         }
@@ -115,6 +123,21 @@ sub.on('message', async (roomID, message) => {
     if (!room) return await unsubscribe(roomID);
 
     switch (value.event) {
+        case 'PLAYER_JOINED':
+            if (!room.players[value.username]) {
+                room.players[value.username] = value.info;
+            }
+
+            // Tell all websockets "player joined the room" here.
+
+            if (isHostCluster(roomID)) {
+                if (Object.entries(room.players).length > 10) {
+                    return removePlayer(roomID, value.username);
+                }
+            }
+
+            break;
+
         case 'PLAYER_LEFT':            
             if (value.host) {
                 const player = room.players[value.host];
@@ -137,7 +160,25 @@ sub.on('message', async (roomID, message) => {
                 }
             }
 
+            if (room.players[value.username].ws && room.players[value.username].ws.closed !== true) room.players[value.username].ws.close();
             delete room.players[value.username];
+
+            const playerAmount = await playerCount(roomID);
+            if (!playerAmount) return;
+
+            if (playerAmount === 0) return await closeRoom(roomID);
+
+            let keepCache = false;
+            for (const [ , { process } ] of Object.entries(room.players)) {
+                if (process === PROCESS_PID) {
+                    keepCache = true;
+                    break;
+                }
+            }
+            if (keepCache === false) {
+                delete cachedRooms[roomID];
+                await unsubscribe(roomID);
+            }
 
             // Tell all websockets the player left the room here.
 
@@ -145,10 +186,12 @@ sub.on('message', async (roomID, message) => {
 
         case 'QUEUE_PLAYER_LEFT':
             if (isHostCluster(roomID)) {
+                await del(roomID, usernamePath(value.username));
+
                 if (room.host === value.username) {
                     const players = Object.entries(room.players);
                     if (players.length - 1 === 0) {
-                        return await closeRoom(roomID);
+                        await closeRoom(roomID);
                     } else {
                         const playersBesidesHostObject = { ...room.players };
                         delete playersBesidesHostObject[value.username];
@@ -161,13 +204,13 @@ sub.on('message', async (roomID, message) => {
                         const newHost = findNewHost[0];
 
                         await modify(roomID, 'host', newHost);
-                        return await publish(roomID, 'PLAYER_LEFT', { username: value.username, host: newHost });
+                        await publish(roomID, 'PLAYER_LEFT', { username: value.username, host: newHost });
                     }
+                } else {
+                    await publish(roomID, 'PLAYER_LEFT', { username: value.username });
                 }
-
-                await del(roomID, usernamePath(value.username));
-                await publish(roomID, 'PLAYER_LEFT', { username: value.username });
             }
+
             break;
 
         case 'CLOSING_ROOM':
@@ -183,6 +226,7 @@ sub.on('message', async (roomID, message) => {
 
             if (!isHostCluster(roomID)) {
                 delete cachedRooms[roomID];
+                await unsubscribe(roomID);
             }
 
             await publish(roomID, 'CLOSED_ROOM');
@@ -195,6 +239,7 @@ sub.on('message', async (roomID, message) => {
 
                 if (room.toClose === 0) {
                     delete cachedRooms[roomID];
+                    await unsubscribe(roomID);
                     await del(roomID);
                 }
             }
@@ -251,6 +296,35 @@ async function createRoom(username, mapName, isPublic = true) {
     return roomID;
 }
 
+async function addPlayer(roomID, username, ws) {
+    const room = await getRoom(roomID);
+    if (!room) return; // Room doesn't exist.
+
+    if (room.closing === true) return;
+
+    const playerList = Object.entries(room.players).map(p => p[0]);
+    if (playerList.length >= 10) return; // Room already full.
+    if (playerList.includes(username)) return; // Username already taken.
+
+    const playerInfo = cloneDeep(PLAYER_TEMPLATE);
+    playerInfo.process = PROCESS_PID;
+    
+    const result = await modify(roomID, usernamePath(username), playerInfo, true);
+    if (result !== 'OK') return; // Username already taken.
+
+    if (!cachedRooms[roomID]) {
+        cachedRooms[roomID] = room;
+        await subscribe(roomID);
+    }
+    
+    playerInfo.ws = ws;
+    room.players[username] = playerInfo;
+
+    await publish(roomID, 'PLAYER_JOINED', { username, info: playerInfo });
+
+    return room;
+}
+
 async function removePlayer(roomID, username) {
     const room = cachedRooms[roomID];
     if (!room) return null;
@@ -285,5 +359,28 @@ export {
 
 }
 
-const roomID = await createRoom("two", null);
-await removePlayer(roomID, "two");
+/*
+// testing
+
+const room = await redis.keys("*");
+if (room.length === 1) {
+    const roomID = room[0];
+    await addPlayer(roomID, "two2");
+
+    console.log(PROCESS_PID, "joined", cachedRooms);
+} else {
+    const roomID = await createRoom("two", null);
+    console.log(PROCESS_PID, "created", cachedRooms);
+
+    setTimeout(async () => {
+        console.log(PROCESS_PID, "left")
+        removePlayer(roomID, "two");
+        removePlayer(roomID, "two2");
+    }, 5000);
+}
+
+setInterval(async () => {
+    console.log(PROCESS_PID, cachedRooms);
+    console.log("keys", await redis.keys("*"))
+}, 10000)
+*/
