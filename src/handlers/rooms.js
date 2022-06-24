@@ -319,6 +319,7 @@ async function addPlayer(roomID, username, ws) {
     if (room.closing === true) return;
 
     const playerList = Object.entries(room.players).map(p => p[0]);
+    if (playerList.length === 0) return; // Room is empty.
     if (playerList.length >= 10) return; // Room already full.
     if (playerList.includes(username)) return; // Username already taken.
 
@@ -417,9 +418,7 @@ async function findPublic() {
     return openRooms;
 }
 
-export {
-
-}
+export { createRoom, addPlayer, removePlayer, togglePublicity, findPublic };
 
 /*
 // cluster.js
