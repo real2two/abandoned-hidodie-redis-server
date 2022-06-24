@@ -22,7 +22,14 @@ const cachedRooms = {};
 
 const publish = async (roomID, event, data = {}) => await redis.publish(roomID, JSON.stringify({ event, ...data }));
 
-const getRoom = async roomID => cachedRooms[roomID] || (await get(roomID))[0];
+const getRoom = async roomID => {
+    if (cachedRooms[roomID]) return cachedRooms[roomID];
+    
+    const room = await get(roomID);
+    if (!room) return null;
+    return room[0];
+}
+
 const isHostCluster = roomID => {
     if (!cachedRooms[roomID]) return;
 
@@ -312,11 +319,13 @@ async function createRoom(username, mapName, isPublic = true) {
     return roomID;
 }
 
-async function addPlayer(roomID, username, ws) {
+async function addPlayer(roomID, ws) {
     const room = await getRoom(roomID);
     if (!room) return; // Room doesn't exist.
 
     if (room.closing === true) return;
+
+    const username = ws.username;
 
     const playerList = Object.entries(room.players).map(p => p[0]);
     if (playerList.length === 0) return; // Room is empty.
@@ -418,35 +427,4 @@ async function findPublic() {
     return openRooms;
 }
 
-export { createRoom, addPlayer, removePlayer, togglePublicity, findPublic };
-
-/*
-// cluster.js
-    // cluster.fork();
-    // setTimeout(() => {
-    //     cluster.fork();
-    // }, 1000)
-
-// test code.
-const room = await redis.keys("*");
-if (room.length === 1) {
-    const roomID = room[0];
-    await addPlayer(roomID, "two2");
-
-    console.log(PROCESS_PID, "joined", cachedRooms);
-} else {
-    const roomID = await createRoom("two", null);
-    console.log(PROCESS_PID, "created", cachedRooms);
-
-    setTimeout(async () => {
-        console.log(PROCESS_PID, "left")
-        removePlayer(roomID, "two");
-        removePlayer(roomID, "two2");
-    }, 5000);
-}
-
-setInterval(async () => {
-    console.log(PROCESS_PID, cachedRooms);
-    console.log("keys", await redis.keys("*"))
-}, 10000)
-*/
+export { getRoom, cachedRooms, createRoom, addPlayer, removePlayer, togglePublicity, findPublic };
