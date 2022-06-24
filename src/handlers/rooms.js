@@ -123,6 +123,15 @@ sub.on('message', async (roomID, message) => {
     if (!room) return await unsubscribe(roomID);
 
     switch (value.event) {
+        case 'TOGGLE_PUBLIC':
+            if (value.public) {
+                room.public = value.public;
+            }
+
+            room.inQuickJoin = value.inQuickJoin;
+
+            break;
+
         case 'PLAYER_JOINED':
             if (!room.players[value.username]) {
                 room.players[value.username] = value.info;
@@ -133,8 +142,11 @@ sub.on('message', async (roomID, message) => {
             if (isHostCluster(roomID)) {
                 if (Object.entries(room.players).length > 10) {
                     return removePlayer(roomID, value.username);
+                } else {
+                    await determineQuickJoinPublicity(roomID);
                 }
             }
+
 
             break;
 
@@ -167,6 +179,10 @@ sub.on('message', async (roomID, message) => {
             if (!playerAmount) return;
 
             if (playerAmount === 0) return await closeRoom(roomID);
+
+            if (isHostCluster(roomID)) {
+                await determineQuickJoinPublicity(roomID);
+            }
 
             let keepCache = false;
             for (const [ , { process } ] of Object.entries(room.players)) {
@@ -270,7 +286,7 @@ async function createRoom(username, mapName, isPublic = true) {
         host: username,
 
         public: isPublic,
-        inQuickJoin: isPublic ? "1" : "0",
+        inQuickJoin: isPublic ? '1' : '0',
 
         map,
 
@@ -342,6 +358,7 @@ async function closeRoom(roomID) {
     if (room.closing === true || (await get(roomID, 'closing'))[0] === true) return;
 
     await modify(roomID, 'closing', true);
+    await modify(roomID, 'inQuickJoin', '0');
     
     const processes = [];
     for (const [ , { process } ] of Object.entries(room.players)) {
@@ -355,13 +372,63 @@ async function closeRoom(roomID) {
     return await publish(roomID, 'CLOSING_ROOM');
 }
 
+async function togglePublicity(roomID) {
+    const room = cachedRooms[roomID];
+    if (!room) return;
+
+    room.public = !room.public;
+
+    if (room.public === true) {
+        determineQuickJoinPublicity()
+    } else {
+        room.inQuickJoin = '0';
+    }
+
+    await publish(roomID, 'TOGGLE_PUBLIC', { public: room.public, inQuickJoin: room.inQuickJoin });
+}
+
+async function determineQuickJoinPublicity(roomID) {
+    const room = cachedRooms[roomID];
+    if (!room) return;
+
+    if (room.public) {
+        const playerCount = Object.entries(room.players).length;
+
+        const shouldBe = (playerCount < 1 || playerCount >= MAX_PLAYERS) ? '0' : '1';
+        if (room.inQuickJoin !== shouldBe) {
+            room.inQuickJoin = shouldBe;
+            await modify(roomID, 'inQuickJoin', room.inQuickJoin);
+            await publish(roomID, 'TOGGLE_PUBLIC', { inQuickJoin: room.inQuickJoin });
+        }
+    }
+}
+
+async function findPublic() {
+    const result = await redis.call('FT.SEARCH', 'findPublic', '@inQuickJoin:1', 'LIMIT', '0', '100');
+    
+    const amountOpened = result.shift();
+    const openRooms = [];
+
+    for (let i = 0; i < amountOpened; ++i) {
+        openRooms.push(result.shift());
+        result.shift();
+    }
+
+    return openRooms;
+}
+
 export {
 
 }
 
 /*
-// testing
+// cluster.js
+    // cluster.fork();
+    // setTimeout(() => {
+    //     cluster.fork();
+    // }, 1000)
 
+// test code.
 const room = await redis.keys("*");
 if (room.length === 1) {
     const roomID = room[0];
