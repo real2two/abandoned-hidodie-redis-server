@@ -5,9 +5,9 @@ export default function(res, req, context) {
     if (protocol.length === 0) return end();
 
     const data = protocol.split(',').map(p => p.replace(/\s+/g, ' ').trim());
-    if ([2, 3].includes(data.length) === false) return end();
+    if (data.length !== 3) return end();
 
-    // Create room: [ VERSION, USERNAME ]
+    // Create public room: [ VERSION, USERNAME, 'c' ]
     // Join room: [ VERSION, USERNAME, ROOM_ID ]
     // Quick join: [ VERSION, USERNAME, 'q' ]
     

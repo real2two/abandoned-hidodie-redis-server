@@ -3,7 +3,7 @@ import Redis from 'ioredis';
 const redis = new Redis();
 const sub = new Redis();
 
-const EXPIRES_IN = 60; // 1 minute.
+const EXPIRES_IN = 60; // 1 minute. (in seconds)
 
 redis.on('error', err => console.log(err));
 
@@ -42,65 +42,6 @@ async function del(key, paths) {
     }
 }
 
-// Subscriptions.
-
-const subscriptions = {
-    running: false,
-    list: [],
-    queue: [],
-
-    run: async () => {
-        if (subscriptions.running === true) return;
-        subscriptions.running = true;
-
-        while (subscriptions.queue.length !== 0) {
-            const { type, roomID, resolve } = subscriptions.queue.shift();
-            const inList = subscriptions.list.find(r => r === roomID);
-
-            if (inList !== (type === 'subscribe')) {
-                switch (type) {
-                    case 'subscribe':
-                        await sub.subscribe(roomID);
-                        subscriptions.list.push(roomID);
-                        break;
-                    case 'unsubscribe':
-                        await sub.unsubscribe(roomID);
-                        subscriptions.list.splice(subscriptions.list.indexOf(inList), 1);
-                        break;
-                }
-            };
-            
-            resolve();
-        }
-
-        subscriptions.running = false;
-    }
-};
-
-async function subscribe(roomID) {
-    return await new Promise(resolve => {
-        subscriptions.queue.push({
-            type: 'subscribe',
-            roomID,
-            resolve
-        });
-
-        subscriptions.run();
-    });
-}
-
-async function unsubscribe(roomID) {
-    return await new Promise(resolve => {
-        subscriptions.queue.push({
-            type: 'unsubscribe',
-            roomID,
-            resolve
-        });
-
-        subscriptions.run();
-    });
-}
-
 export {
     redis,
     sub,
@@ -111,9 +52,5 @@ export {
     set,
     modify,
     renew,
-    del,
-
-    subscriptions,
-    subscribe,
-    unsubscribe
+    del
 };

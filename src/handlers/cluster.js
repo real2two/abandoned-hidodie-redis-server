@@ -10,7 +10,7 @@ if (cluster.isPrimary) {
     console.log('[WEB CLUSTER] The website is loading...');
 
     await redis.flushall();
-    await redis.call('FT.CREATE', 'findPublic', 'ON', 'JSON', 'SCHEMA', '$.isPublic', 'AS', 'isPublic', 'TEXT');
+    await redis.call('FT.CREATE', 'findPublic', 'ON', 'JSON', 'SCHEMA', '$.inQuickJoin', 'AS', 'inQuickJoin', 'TEXT');
 
     for (let i = 0; i < clusterCount; ++i) {
         cluster.fork();

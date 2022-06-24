@@ -1,1 +1,0 @@
-make events like PLAYER_JOIN and PLAYER_LEAVE work
