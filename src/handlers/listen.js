@@ -29,7 +29,6 @@ app
         message,
         close
     })
-
     .listen(parseFloat(process.env.PORT), listenSocket => {
         if (listenSocket) {
             console.log(`[WEB #${process.pid}] Worker started.`);
